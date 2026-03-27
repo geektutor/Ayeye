@@ -1,0 +1,128 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ORGANIZER
+  ATTENDEE
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  LIVE
+  CLOSED
+}
+
+enum NoShowPolicy {
+  CHARITY
+  SCHOLARSHIP
+  REDISTRIBUTE
+  EVENT_BUDGET
+}
+
+enum RegistrationStatus {
+  PENDING
+  PAID
+  CHECKED_IN
+  REFUNDED
+  NO_SHOW
+  PAYMENT_FAILED
+}
+
+enum TransactionType {
+  PAYMENT
+  REFUND
+  POOL_TRANSFER
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  phone        String?
+  role         Role     @default(ATTENDEE)
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  organizedEvents Event[]        @relation("OrganizerEvents")
+  registrations   Registration[]
+
+  @@map("users")
+}
+
+model Event {
+  id               String       @id @default(cuid())
+  name             String
+  description      String?
+  date             DateTime
+  venue            String
+  depositAmount    Int          // stored in kobo
+  noShowPolicy     NoShowPolicy
+  maxAttendees     Int?
+  organizerId      String
+  status           EventStatus  @default(DRAFT)
+  registrationLink String       @unique @default(cuid())
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  organizer     User           @relation("OrganizerEvents", fields: [organizerId], references: [id])
+  registrations Registration[]
+
+  @@map("events")
+}
+
+model Registration {
+  id                   String             @id @default(cuid())
+  eventId              String
+  attendeeId           String
+  status               RegistrationStatus @default(PENDING)
+  depositAmount        Int                // in kobo — snapshot of event deposit at time of registration
+  qrCode               String?            @unique
+  paycodeId            String?
+  transactionReference String?
+  paidAt               DateTime?
+  checkedInAt          DateTime?
+  refundedAt           DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  event        Event         @relation(fields: [eventId], references: [id])
+  attendee     User          @relation(fields: [attendeeId], references: [id])
+  transactions Transaction[]
+
+  @@map("registrations")
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  registrationId  String
+  type            TransactionType
+  amount          Int               // in kobo
+  currency        String            @default("NGN")
+  reference       String            @unique
+  interswitchRef  String?
+  status          TransactionStatus @default(PENDING)
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  registration Registration @relation(fields: [registrationId], references: [id])
+
+  @@map("transactions")
+}
