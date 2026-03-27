@@ -1,7 +1,6 @@
 import { Router } from 'express'
 
 import { createEventSchema, updateEventSchema } from '@ayeye/types'
-import type { Event } from '@prisma/client'
 
 import { prisma } from '../lib/prisma'
 import { requireAuth } from '../middleware/auth'
@@ -40,7 +39,7 @@ router.get('/', requireAuth, async (req, res) => {
     })
 
     const eventsWithCounts = await Promise.all(
-      events.map(async (event: Event) => {
+      events.map(async (event) => {
         const [totalRegistrations, totalCheckins] = await Promise.all([
           prisma.registration.count({ where: { eventId: event.id, status: { not: 'PAYMENT_FAILED' } } }),
           prisma.registration.count({ where: { eventId: event.id, status: 'CHECKED_IN' } }),
